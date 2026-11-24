@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Transporte y densidad · Puebla</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root{ --bg:#f2f2f0; --panel:rgba(255,255,255,.95); --ink:#1d1b18; --muted:#6b665e; --line:#dcd7cc; --accent:#b3361c; --route:#0b57d0; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14130f; --panel:rgba(28,26,22,.95); --ink:#f1ede4; --muted:#a39d90; --line:#3a362e; --accent:#ff8a65; --route:#6ea8ff; }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  #map{position:absolute;inset:0}
+  .panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;backdrop-filter:blur(6px);box-shadow:0 2px 14px rgba(0,0,0,.12)}
+  #title{top:14px;left:14px;width:330px;max-height:calc(100vh - 230px);overflow:auto}
+  #title h1{font-size:16px;margin:0 0 2px;letter-spacing:-.01em}
+  #title p{margin:0;color:var(--muted);font-size:12.5px}
+  .seg{display:flex;margin-top:10px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;padding:7px 6px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+  .row{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12.5px}
+  .row input[type=checkbox]{accent-color:var(--accent)}
+  .row.slider{display:block;color:var(--muted);font-size:12px}
+  .row.slider input{width:100%;accent-color:var(--accent)}
+  .btn{margin-top:9px;width:100%;padding:7px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font:inherit;font-size:12.5px;cursor:pointer}
+  #legend{bottom:34px;left:14px;width:310px}
+  #legend h2,#info h2{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .ramp{display:flex;height:12px;border-radius:3px;overflow:hidden} .ramp span{flex:1}
+  .ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+  .key{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;color:var(--muted)}
+  .key i{display:inline-block}
+  .legend-note{margin:8px 0 0;font-size:11.5px;color:var(--muted)}
+  #info{top:14px;right:14px;width:270px;min-height:60px}
+  #info .hint{color:var(--muted);font-size:12.5px;margin:0}
+  #info dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+  #info dt{color:var(--muted)} #info dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+  #info .big{font-size:22px;font-weight:650;letter-spacing:-.02em;margin:0 0 6px}
+  #info .big small{font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
+  #note{bottom:34px;right:64px;width:350px;font-size:12px;color:var(--muted);max-height:48vh;overflow:auto}
+  #note summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
+  #note ul{margin:8px 0 0;padding-left:16px} #note li{margin:3px 0} #note a{color:var(--accent)}
+  .kpi{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}
+  .kpi div{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .kpi b{display:block;font-size:16px;color:var(--ink)} .kpi span{font-size:10.5px;color:var(--muted);line-height:1.2;display:block}
+  @media (max-width:760px){ #info{top:auto;bottom:250px;left:14px;right:14px;width:auto} #title{right:14px;width:auto} #legend{width:auto;right:14px} #note{display:none} }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="title" class="panel">
+  <h1>Transporte público y densidad · Puebla</h1>
+  <p>Rutas y paradas mapeadas en OpenStreetMap sobre la densidad de población por AGEB (Censo 2020)</p>
+  <div class="seg" role="group" aria-label="Colorear por">
+    <button id="m-dens" aria-pressed="true">Color: densidad</button>
+    <button id="m-cob" aria-pressed="false">Color: cobertura</button>
+  </div>
+  <label class="row"><input type="checkbox" id="t-rutas" checked> Mostrar rutas y paradas</label>
+  <label class="row slider">Exageración de altura: <b id="exv">1.6×</b>
+    <input id="ex" type="range" min="0.3" max="3" step="0.1" value="1.6"></label>
+  <button class="btn" id="vista">Vista cenital (desde arriba)</button>
+  <div class="kpi">
+    <div><b>__PCT__ %</b><span>de la población a ≤400 m de una parada o ruta mapeada</span></div>
+    <div><b>__NRUTAS__</b><span>rutas con trazo en OSM</span></div>
+    <div><b>__NPAR__</b><span>paradas en OSM</span></div>
+  </div>
+</div>
+
+<div id="info" class="panel" aria-live="polite"><h2>AGEB</h2><p class="hint">Pasa el cursor sobre un bloque para ver su población, densidad y cobertura.</p></div>
+
+<div id="legend" class="panel"></div>
+
+<details id="note" class="panel" open>
+  <summary>Fuentes y notas metodológicas</summary>
+  <ul>
+    <li><b>Importante:</b> el transporte son solo rutas y paradas <b>mapeadas en OpenStreetMap</b>: __NRUTAS__ rutas con trazo (RUTA/BRT y algunas rutas urbanas) y __NPAR__ paradas. <b>No es el sistema completo</b>: faltan la mayoría de rutas concesionadas (combis, microbuses). La cobertura baja puede significar falta de dato, no falta de servicio.</li>
+    <li><b>Cobertura</b> = fracción de cada AGEB a ≤400 m (unos 5 min a pie) de una parada o de una ruta; se asume población uniforme dentro de la AGEB. Con paradas: __PCTP__ %; con trazo de rutas: __PCTR__ %.</li>
+    <li><b>Población:</b> INEGI, Censo 2020, AGEB urbanas de los 13 municipios poblanos de la zona metropolitana Puebla-Tlaxcala (SEDATU/CONAPO/INEGI, <i>Metrópolis de México 2020</i>). 2 380 908 hab., 95.9 % de su población.</li>
+    <li><b>Es densidad residencial</b> (dónde duerme la gente, no dónde está de día); datos de 2020; las AGEB periféricas grandes diluyen la densidad.</li>
+    <li><b>Altura</b> en escala logarítmica. Datos de transporte: © colaboradores de <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL), consulta del 20/11/2026. Mapa base: OpenFreeMap © OpenMapTiles.</li>
+  </ul>
+</details>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+const DATA = __DATA__;
+const ROUTES = __ROUTES__;
+const STOPS = __STOPS__;
+
+const DSTOPS = [[0,'#ffffcc'],[2000,'#fed976'],[5000,'#fd8d3c'],[10000,'#e31a1c'],[20000,'#b10026'],[40000,'#67001f']];
+const CSTOPS = [[0,'#5b2a86'],[0.25,'#a58bc4'],[0.5,'#d9d3e3'],[0.75,'#7fc4b8'],[1,'#13867a']];
+const NODATA = '#9a958a';
+const K = 110, D0 = Math.log(1 + 100);
+const heightExpr = ex => ['case', ['all',['has','dens'],['>',['get','dens'],100]],
+  ['*', ex*K, ['-', ['ln',['+',1,['get','dens']]], D0]], 0];
+const hasPop = ['>', ['coalesce',['get','pob'],0], 0];
+const colorDens = ['case', ['all',['has','dens'],['>',['coalesce',['get','dens'],0],0]], ['interpolate',['linear'],['get','dens'],...DSTOPS.flat()], NODATA];
+const colorCob  = ['case', hasPop, ['interpolate',['linear'],['coalesce',['get','cob'],0],...CSTOPS.flat()], NODATA];
+const grad = st => st.map(s=>`<span style="background:${s[1]}"></span>`).join('');
+
+function legend(mode){
+  const el = document.getElementById('legend');
+  el.innerHTML = mode==='dens'
+   ? `<h2>Color y altura: densidad (hab/km²)</h2><div class="ramp">${grad(DSTOPS)}</div>
+      <div class="ticks"><span>0</span><span>2 000</span><span>5 000</span><span>10 000</span><span>20 000</span><span>40 000+</span></div>
+      <div class="key"><i style="width:22px;border-top:3px solid #0b57d0"></i>Ruta mapeada &nbsp;<i style="width:8px;height:8px;border-radius:50%;background:#fff;border:2px solid #0b57d0"></i>Parada</div>
+      <p class="legend-note">Altura en escala logarítmica. Gris plano: AGEB sin población.</p>`
+   : `<h2>Color: cobertura de transporte mapeado · Altura: densidad</h2><div class="ramp">${grad(CSTOPS)}</div>
+      <div class="ticks"><span>0 %</span><span>25</span><span>50</span><span>75</span><span>100 %</span></div>
+      <p class="legend-note"><b>Bloque alto y morado</b> = muy denso y sin parada ni ruta mapeada a ≤400 m. Revisar contra el sistema real: puede ser falta de dato.</p>`;
+}
+legend('dens');
+
+const STYLE_URL = '__STYLE__';
+const BLANK = {version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#e9e9e4'}}]};
+// Descarga el estilo del mapa base; si falla o tarda más de 8 s, se muestran los datos sobre fondo liso
+async function getStyle(){
+  try{
+    const c=new AbortController(); const t=setTimeout(()=>c.abort(),8000);
+    const r=await fetch(STYLE_URL,{signal:c.signal}); clearTimeout(t);
+    if(!r.ok) throw new Error('http '+r.status);
+    return await r.json();
+  }catch(e){ console.warn('Mapa base no disponible, usando fondo liso:',e); return BLANK; }
+}
+getStyle().then(STYLE=>{
+const map = new maplibregl.Map({
+  container:'map', style:STYLE,
+  center:[-98.2100,19.0300], zoom:11.4, pitch:55, bearing:-20, maxPitch:75
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
+map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-right');
+
+let mode='dens', ex=1.6, rutasOn=true;
+const opacity = () => rutasOn ? 0.62 : 0.9;
+
+map.once('style.load', () => {
+  map.addSource('ageb',{type:'geojson',data:DATA});
+  map.addSource('rutas',{type:'geojson',data:ROUTES});
+  map.addSource('paradas',{type:'geojson',data:STOPS});
+  map.addLayer({id:'ageb-3d',type:'fill-extrusion',source:'ageb',paint:{
+    'fill-extrusion-color':colorDens,'fill-extrusion-height':heightExpr(ex),'fill-extrusion-base':0,
+    'fill-extrusion-opacity':opacity(),'fill-extrusion-vertical-gradient':true}});
+  map.addLayer({id:'ageb-hl',type:'fill-extrusion',source:'ageb',filter:['==',['get','cvegeo'],''],paint:{
+    'fill-extrusion-color':'#00a6d6','fill-extrusion-height':heightExpr(ex),'fill-extrusion-base':0,'fill-extrusion-opacity':1}});
+  map.addLayer({id:'rutas-casing',type:'line',source:'rutas',layout:{'line-join':'round','line-cap':'round'},
+    paint:{'line-color':'#ffffff','line-width':['case',['get','brt'],7,5],'line-opacity':0.9}});
+  map.addLayer({id:'rutas-linea',type:'line',source:'rutas',layout:{'line-join':'round','line-cap':'round'},
+    paint:{'line-color':['case',['get','brt'],'#0b57d0','#1a73e8'],'line-width':['case',['get','brt'],4,2.5]}});
+  map.addLayer({id:'paradas-pt',type:'circle',source:'paradas',minzoom:12,
+    paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,1.8,16,5],'circle-color':'#ffffff',
+      'circle-stroke-color':'#0b57d0','circle-stroke-width':1.3}});
+
+  const info = document.getElementById('info');
+  const HINT = '<h2>AGEB</h2><p class="hint">Pasa el cursor sobre un bloque para ver su población, densidad y cobertura.</p>';
+  const fmt=(n,d=0)=>(n==null||isNaN(n))?'—':n.toLocaleString('es-MX',{maximumFractionDigits:d});
+  map.on('mousemove','ageb-3d',e=>{
+    map.getCanvas().style.cursor='pointer';
+    const p=e.features[0].properties;
+    map.setFilter('ageb-hl',['==',['get','cvegeo'],p.cvegeo]);
+    const dens=(p.dens===undefined||p.dens===null||p.dens==='null')?null:+p.dens;
+    info.innerHTML=`<h2>AGEB ${p.cvegeo}</h2><p class="big">${fmt(dens)}<small>hab/km²</small></p>
+      <dl><dt>Municipio</dt><dd>${p.municipio}</dd><dt>Población</dt><dd>${fmt(+p.pob)} hab.</dd>
+      <dt>Área</dt><dd>${fmt(+p.area_km2,2)} km²</dd>
+      <dt>Cobertura mapeada</dt><dd>${fmt(100*(+p.cob),0)} %</dd>
+      <dt>Pob. a ≤400 m</dt><dd>${fmt(+p.pob_cub)} hab.</dd></dl>`;
+  });
+  map.on('mouseleave','ageb-3d',()=>{map.getCanvas().style.cursor='';map.setFilter('ageb-hl',['==',['get','cvegeo'],'']);info.innerHTML=HINT;});
+  map.on('click','rutas-linea',e=>{
+    const p=e.features[0].properties;
+    new maplibregl.Popup({closeButton:false}).setLngLat(e.lngLat).setHTML(`<b>${p.nombre}</b><br>${p.red||p.operador||'Ruta de bus'}`).addTo(map);
+  });
+  map.on('mouseenter','rutas-linea',()=>map.getCanvas().style.cursor='pointer');
+
+  const setHeights = () => ['ageb-3d','ageb-hl'].forEach(id=>map.setPaintProperty(id,'fill-extrusion-height',heightExpr(ex)));
+  document.getElementById('ex').addEventListener('input',e=>{ex=+e.target.value;document.getElementById('exv').textContent=ex.toFixed(1)+'×';setHeights();});
+
+  const bd=document.getElementById('m-dens'), bc=document.getElementById('m-cob');
+  const setMode=m=>{mode=m;bd.setAttribute('aria-pressed',m==='dens');bc.setAttribute('aria-pressed',m==='cob');
+    map.setPaintProperty('ageb-3d','fill-extrusion-color',m==='dens'?colorDens:colorCob);legend(m);};
+  bd.onclick=()=>setMode('dens'); bc.onclick=()=>setMode('cob');
+
+  document.getElementById('t-rutas').addEventListener('change',e=>{
+    rutasOn=e.target.checked; const v=rutasOn?'visible':'none';
+    ['rutas-casing','rutas-linea','paradas-pt'].forEach(id=>map.setLayoutProperty(id,'visibility',v));
+    map.setPaintProperty('ageb-3d','fill-extrusion-opacity',opacity());
+  });
+  let top=false; const vb=document.getElementById('vista');
+  vb.onclick=()=>{top=!top;map.easeTo({pitch:top?0:55,bearing:top?0:-20,duration:900});vb.textContent=top?'Volver a vista 3D':'Vista cenital (desde arriba)';};
+});
+});
+</script>
+</body>
+</html>

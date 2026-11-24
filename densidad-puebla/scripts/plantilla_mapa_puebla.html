@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Densidad de población 3D · ZM Puebla-Tlaxcala</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root{
+    --bg:#f6f4ef; --panel:rgba(255,255,255,.94); --ink:#1d1b18; --muted:#6b665e; --line:#dcd7cc;
+    --accent:#b3361c;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14130f; --panel:rgba(28,26,22,.94); --ink:#f1ede4; --muted:#a39d90; --line:#3a362e; --accent:#ff8a65; }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  #map{position:absolute;inset:0}
+  .panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;backdrop-filter:blur(6px);box-shadow:0 2px 14px rgba(0,0,0,.12)}
+  #title{top:14px;left:14px;max-width:340px}
+  #title h1{font-size:16px;margin:0 0 2px;letter-spacing:-.01em}
+  #title p{margin:0;color:var(--muted);font-size:12.5px}
+  #title label{display:block;margin-top:10px;font-size:12px;color:var(--muted)}
+  #title input[type=range]{width:100%;accent-color:var(--accent)}
+  #legend{bottom:34px;left:14px;width:300px}
+  #legend h2,#info h2{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .ramp{display:flex;height:12px;border-radius:3px;overflow:hidden}
+  .ramp span{flex:1}
+  .ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+  .nodata{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--muted)}
+  .nodata i{width:12px;height:12px;border-radius:3px;background:#9a958a;display:inline-block}
+  .legend-note{margin:8px 0 0;font-size:11.5px;color:var(--muted)}
+  #info{top:14px;right:14px;width:260px;min-height:60px}
+  #info .hint{color:var(--muted);font-size:12.5px;margin:0}
+  #info dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+  #info dt{color:var(--muted)} #info dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+  #info .big{font-size:22px;font-weight:650;letter-spacing:-.02em;margin:0 0 6px}
+  #info .big small{font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
+  #note{bottom:34px;right:64px;width:330px;font-size:12px;color:var(--muted);max-height:46vh;overflow:auto}
+  #note summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
+  #note ul{margin:8px 0 0;padding-left:16px} #note li{margin:3px 0}
+  #note a{color:var(--accent)}
+  @media (max-width:760px){
+    #info{top:auto;bottom:230px;right:14px;left:14px;width:auto}
+    #title{max-width:none;right:14px}
+    #legend{width:auto;right:14px}
+    #note{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="title" class="panel">
+  <h1>¿Dónde vive la gente?</h1>
+  <p>Densidad de población por AGEB · Ciudad de Puebla y municipios conurbados · Censo 2020</p>
+  <label>Exageración de altura: <b id="exv">1.6×</b>
+    <input id="ex" type="range" min="0.3" max="3" step="0.1" value="1.6"></label>
+</div>
+
+<div id="info" class="panel" aria-live="polite">
+  <h2>AGEB</h2>
+  <p class="hint">Pasa el cursor sobre un bloque para ver su población y densidad.</p>
+</div>
+
+<div id="legend" class="panel">
+  <h2>Densidad (hab/km²) — color y altura</h2>
+  <div class="ramp" id="ramp"></div>
+  <div class="ticks"><span>0</span><span>2 000</span><span>5 000</span><span>10 000</span><span>20 000</span><span>40 000+</span></div>
+  <div class="nodata"><i></i>Sin población (0 hab) · bloque plano</div>
+  <p class="legend-note">La altura usa escala logarítmica: duplicar la densidad suma una altura fija, no la duplica.</p>
+</div>
+
+<details id="note" class="panel" open>
+  <summary>Fuente y notas metodológicas</summary>
+  <ul>
+    <li><b>Fuente:</b> INEGI, Censo de Población y Vivienda 2020 (principales resultados por AGEB urbana) y Marco Geoestadístico 2020. Delimitación de la zona metropolitana: SEDATU, CONAPO e INEGI, <i>Metrópolis de México 2020</i>. Aquí se muestran los 13 municipios poblanos de la zona metropolitana Puebla-Tlaxcala; los 15 de Tlaxcala quedan fuera de esta vista.</li>
+    <li><b>Es densidad residencial:</b> muestra dónde duerme la gente, no dónde está de día (trabajo, escuela, comercio).</li>
+    <li><b>Datos de 2020:</b> la ciudad ha crecido desde entonces, sobre todo hacia el poniente y norte.</li>
+    <li><b>AGEB periféricas grandes:</b> una AGEB extensa con poca gente y un núcleo denso adentro se promedia y se ve más baja de lo que es en la práctica.</li>
+    <li><b>Cobertura:</b> solo AGEB urbanas: 2 380 908 hab., el 95.9 % de los 2 482 966 de esos 13 municipios. El resto vive en localidades rurales, que no están en el mapa.</li>
+    <li>Densidad = población ÷ área calculada en la proyección original (Lambert cónica conforme). Geometrías simplificadas para aligerar la página.</li>
+    <li>Mapa base © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors © <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © OpenMapTiles. Requiere conexión a internet (mapa base y MapLibre).</li>
+  </ul>
+</details>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+const DATA = __DATA__;
+
+// Rampa secuencial (ColorBrewer YlOrRd, 7 clases) con cortes en hab/km²
+const STOPS = [[0,'#ffffcc'],[2000,'#fed976'],[5000,'#fd8d3c'],[10000,'#e31a1c'],[20000,'#b10026'],[40000,'#67001f']];
+const NODATA = '#9a958a';
+document.getElementById('ramp').innerHTML = STOPS.map(s=>`<span style="background:${s[1]}"></span>`).join('');
+
+// Altura (m): logarítmica. 0 por debajo de 100 hab/km².
+const K = 110, D0 = Math.log(1 + 100);
+const heightExpr = (ex) => ['case',
+  ['all', ['has','dens'], ['>', ['get','dens'], 100]],
+  ['*', ex * K, ['-', ['ln', ['+', 1, ['get','dens']]], D0]],
+  0];
+
+const colorExpr = ['case',
+  ['all', ['has','dens'], ['>', ['coalesce', ['get','dens'], 0], 0]],
+  ['interpolate', ['linear'], ['get','dens'], ...STOPS.flat()],
+  NODATA];
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/positron',
+  center: [-98.2100, 19.0300], zoom: 11.4, pitch: 55, bearing: -20, maxPitch: 75
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'bottom-right');
+map.addControl(new maplibregl.ScaleControl({unit:'metric'}), 'bottom-right');
+
+map.once('style.load', () => {
+  map.addSource('ageb', { type:'geojson', data: DATA });
+  map.addLayer({
+    id:'ageb-3d', type:'fill-extrusion', source:'ageb',
+    paint:{
+      'fill-extrusion-color': colorExpr,
+      'fill-extrusion-height': heightExpr(1.6),
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': 0.9,
+      'fill-extrusion-vertical-gradient': true
+    }
+  });
+  // Capa de resaltado: misma geometría y altura, solo la AGEB bajo el cursor
+  map.addLayer({
+    id:'ageb-hl', type:'fill-extrusion', source:'ageb', filter:['==',['get','cvegeo'],''],
+    paint:{
+      'fill-extrusion-color': '#00a6d6',
+      'fill-extrusion-height': heightExpr(1.6),
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': 1
+    }
+  });
+
+  const info = document.getElementById('info');
+  const HINT = '<h2>AGEB</h2><p class="hint">Pasa el cursor sobre un bloque para ver su población y densidad.</p>';
+  const fmt = (n,d=0)=> (n==null||isNaN(n)) ? '—' : n.toLocaleString('es-MX',{maximumFractionDigits:d});
+  map.on('mousemove','ageb-3d', e => {
+    map.getCanvas().style.cursor = 'pointer';
+    const p = e.features[0].properties;
+    map.setFilter('ageb-hl', ['==',['get','cvegeo'], p.cvegeo]);
+    const dens = (p.dens===undefined||p.dens===null||p.dens==='null') ? null : +p.dens;
+    info.innerHTML = `<h2>AGEB ${p.cvegeo}</h2>
+      <p class="big">${fmt(dens)}<small>hab/km²</small></p>
+      <dl><dt>Municipio</dt><dd>${p.municipio}, ${p.estado}</dd>
+          <dt>Población</dt><dd>${fmt(+p.pob)} hab.</dd>
+          <dt>Área</dt><dd>${fmt(+p.area_km2,2)} km²</dd></dl>`;
+  });
+  map.on('mouseleave','ageb-3d', () => {
+    map.getCanvas().style.cursor = '';
+    map.setFilter('ageb-hl', ['==',['get','cvegeo'],'']);
+    info.innerHTML = HINT;
+  });
+
+  const ex = document.getElementById('ex'), exv = document.getElementById('exv');
+  ex.addEventListener('input', () => {
+    exv.textContent = (+ex.value).toFixed(1)+'×';
+    for (const id of ['ageb-3d','ageb-hl']) map.setPaintProperty(id,'fill-extrusion-height', heightExpr(+ex.value));
+  });
+});
+</script>
+</body>
+</html>

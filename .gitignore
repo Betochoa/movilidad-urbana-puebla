@@ -1,0 +1,9 @@
+.env
+.claude/settings.local.json
+.claude/settings.json
+.claude/get-api-key.sh
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
