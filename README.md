@@ -35,6 +35,8 @@ Validación: la suma de los 28 municipios coincide con el total oficial (2,776,8
 
 ## Ver el mapa
 
+**🗺️ Mapa en línea: https://betochoa.github.io/movilidad-urbana-puebla/**
+
 Los mapas ya generados están en [`densidad-puebla/salida/`](densidad-puebla/salida/). Son archivos HTML autocontenidos: ábrelos en el navegador (necesitan internet para cargar el mapa base). El más completo es:
 
 - `2026-11-20-mapa-3d-simulacion-ruta-densidad-puebla-v2.html`
